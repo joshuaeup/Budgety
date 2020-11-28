@@ -3,30 +3,32 @@
 // Model
 // Budget Controller
 const budgetController = (() => {
-    const Expense = function (id, description, value) {
-        this.id = id;
-        this.description = description;
-        this.value = value;
-        this.percentage = -1;
-    };
-
-    Expense.prototype.calcPercentage = function (totalIncome) {
-        if (totalIncome > 0) {
-            this.percentage = Math.round((this.value / totalIncome) * 100);
-        } else {
+    class Expense {
+        constructor(id, description, value) {
+            this.id = id;
+            this.description = description;
+            this.value = value;
             this.percentage = -1;
         }
-    };
 
-    Expense.prototype.getPercentage = function () {
-        return this.percentage;
-    };
+        calcPercentage(totalIncome) {
+            if (totalIncome > 0) {
+                this.percentage = Math.round((this.value / totalIncome) * 100);
+            } else {
+                this.percentage = -1;
+            }
+        }
 
-    const Income = function (id, description, value) {
-        this.id = id;
-        this.description = description;
-        this.value = value;
-    };
+        getPercentage() {
+            return this.percentage;
+        }
+    }
+
+    class Income extends Expense {
+        constructor(id, description, value) {
+            super(id, description, value);
+        }
+    }
 
     const data = {
         allItems: {
@@ -42,11 +44,16 @@ const budgetController = (() => {
     };
 
     const calculateTotal = (type) => {
-        let sum = 0;
+        // let sum = 0;
 
-        data.allItems[type].forEach((item) => {
-            sum += item.value;
-        });
+        // data.allItems[type].forEach((item) => {
+        //     sum += item.value;
+        // });
+
+        // Loops through array to generate sum
+        let sum = data.allItems[type].reduce((accumulator, currentValue) => {
+            return accumulator + currentValue.value;
+        }, 0);
 
         data.totals[type] = sum;
     };
@@ -100,6 +107,11 @@ const budgetController = (() => {
             calculateTotal("inc");
             // Calculate the budget income - expenses
             data.budget = data.totals.inc - data.totals.exp;
+
+            // Checks if over budget
+            if (data.budget < 0) {
+                alert("You are over budget!!!");
+            }
 
             if (data.totals.inc > 0) {
                 // Calculate the percentage of income that we spent
@@ -169,15 +181,15 @@ const UIController = (() => {
         // Separate num and decimal into two separate indexes in an array.
         numSplit = num.split(".");
         // Holds Integer
-        int = numSplit[0];
-
-        if (int.length > 3) {
-            // Start at -3 pos then Start after -3 then continue for remaining length
-            int =
-                int.substr(0, int.length - 3) +
-                "," +
-                int.substr(int.length - 3, 3); // input 2310, output 2,310
-        }
+        // And parses using regex command
+        int = numSplit[0].toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+        // BreakDown
+        // (/\B) = Escaping then finding a match not at the beginning of string
+        // (?=exp) = Matches any string that is followed by a specific string exp
+        // (\d) = Find a digit
+        // {3} = Specifies sequence
+        // ?!\d = Matches any string that is not followed by a specific string d
+        // g = Perform global check
 
         // Holds Decimal
         dec = numSplit[1];
@@ -207,7 +219,7 @@ const UIController = (() => {
         },
 
         // Method to add newly created item to the DOM
-        addListItem: (obj, type) => {
+        addListItem: ({ id, description, value }, type) => {
             let html, newHtml, element;
 
             // Checks what type the item has in order to use the correct html item
@@ -221,9 +233,9 @@ const UIController = (() => {
                     '<div class="item clearfix" id="exp-%id%"><div class="item__description">%description%</div><div class="right clearfix"><div class="item__value">%value%</div><div class="item__percentage">21%</div><div class="item__delete"><button class="item__delete--btn"><i class="ion-ios-close-outline"></i></button></div></div></div>';
             }
 
-            newHtml = html.replace("%id%", obj.id);
-            newHtml = newHtml.replace("%description%", obj.description);
-            newHtml = newHtml.replace("%value%", formatNumber(obj.value, type));
+            newHtml = html.replace("%id%", id);
+            newHtml = newHtml.replace("%description%", description);
+            newHtml = newHtml.replace("%value%", formatNumber(value, type));
 
             // Append value to provided DOM element
             document
@@ -231,9 +243,10 @@ const UIController = (() => {
                 .insertAdjacentHTML("beforeend", newHtml);
         },
 
-        deleteListItem: function (selectorID) {
+        deleteListItem: (selectorID) => {
             const el = document.getElementById(selectorID);
 
+            // Remove element with specified ID from DOM
             el.parentNode.removeChild(el);
         },
 
@@ -250,29 +263,35 @@ const UIController = (() => {
             fieldsArr = Array.prototype.slice.call(fields);
 
             fieldsArr.forEach((element) => {
-                element.value = " ";
+                element.value = "";
             });
 
             fieldsArr[0].focus();
         },
 
-        displayBudget: (obj) => {
+        displayBudget: ({ budget, totalInc, totalExp, percentage }) => {
             let type;
 
-            obj.budget > 0 ? (type = "inc") : (type = "exp");
+            budget > 0 ? (type = "inc") : (type = "exp");
 
-            document.querySelector(DOMstrings.budgetLabel).textContent =
-                obj.budget;
+            if (budget !== 0) {
+                document.querySelector(
+                    DOMstrings.budgetLabel
+                ).textContent = formatNumber(budget, type);
+            } else {
+                document.querySelector(DOMstrings.budgetLabel).textContent =
+                    "0.00";
+            }
             document.querySelector(
                 DOMstrings.incomeLabel
-            ).textContent = formatNumber(obj.totalInc, "inc");
+            ).textContent = formatNumber(totalInc, "inc");
             document.querySelector(
                 DOMstrings.expensesLabel
-            ).textContent = formatNumber(obj.totalExp, "exp");
+            ).textContent = formatNumber(totalExp, "exp");
 
-            if (obj.percentage > 0) {
+            if (percentage > 0) {
                 document.querySelector(DOMstrings.percentageLabel).textContent =
-                    obj.percentage + "%";
+                    percentage + "%";
             } else {
                 document.querySelector(DOMstrings.percentageLabel).textContent =
                     "---";
@@ -397,11 +416,7 @@ const controller = ((budgetCtrl, UICtrl) => {
         // 1. Get the field input data
         input = UICtrl.getInput();
 
-        if (
-            input.description !== "" &&
-            !isNaN(input.value) &&
-            input.value > 0
-        ) {
+        if (input.value > 0) {
             // 2. Add the item to the budget controller
             newItem = budgetCtrl.addItem(
                 input.type,
@@ -420,6 +435,10 @@ const controller = ((budgetCtrl, UICtrl) => {
 
             // 6. Calculate and update percentages
             updatePercentages();
+        } else if (input.description === "") {
+            alert("Description Needed");
+        } else if (isNaN(input.value)) {
+            alert("Valid Number Needed");
         }
     };
 
