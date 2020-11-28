@@ -110,7 +110,11 @@ const budgetController = (() => {
 
             // Checks if over budget
             if (data.budget < 0) {
-                alert("You are over budget!!!");
+                alert("You are over budget");
+                document.querySelector(".budget__value").style.color =
+                    "#ff5049";
+            } else {
+                document.querySelector(".budget__value").style.color = "white";
             }
 
             if (data.totals.inc > 0) {
